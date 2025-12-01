@@ -1,191 +1,258 @@
-<h1 align="center">
-  <img style="vertical-align:middle" height="200"
-  src="https://raw.githubusercontent.com/vibrantlabsai/ragas/main/docs/_static/imgs/logo.png">
-</h1>
-<p align="center">
-  <i>Supercharge Your LLM Application Evaluations 🚀</i>
-</p>
+# Ragas + SiliconFlow + Milvus 集成测试
 
-<p align="center">
-    <a href="https://github.com/vibrantlabsai/ragas/releases">
-        <img alt="Latest release" src="https://img.shields.io/github/release/vibrantlabsai/ragas.svg">
-    </a>
-    <a href="https://www.python.org/">
-        <img alt="Made with Python" src="https://img.shields.io/badge/Made%20with-Python-1f425f.svg?color=purple">
-    </a>
-    <a href="https://github.com/vibrantlabsai/ragas/blob/master/LICENSE">
-        <img alt="License Apache-2.0" src="https://img.shields.io/github/license/vibrantlabsai/ragas.svg?color=green">
-    </a>
-    <a href="https://pypi.org/project/ragas/">
-        <img alt="Ragas Downloads per month" src="https://static.pepy.tech/badge/ragas/month">
-    </a>
-    <a href="https://discord.gg/5djav8GGNZ">
-        <img alt="Join Ragas community on Discord" src="https://img.shields.io/discord/1119637219561451644">
-    </a>
-    <a target="_blank" href="https://deepwiki.com/vibrantlabsai/ragas">
-      <img 
-        src="https://devin.ai/assets/deepwiki-badge.png" 
-        alt="Ask DeepWiki.com" 
-        height="20" 
-      />
-    </a>
-</p>
+这个项目展示了如何使用 Ragas 评估框架结合 SiliconFlow API 和 Milvus 向量数据库进行 RAG 系统评估。
 
-<h4 align="center">
-    <p>
-        <a href="https://docs.ragas.io/">Documentation</a> |
-        <a href="#fire-quickstart">Quick start</a> |
-        <a href="https://discord.gg/5djav8GGNZ">Join Discord</a> |
-        <a href="https://blog.ragas.io/">Blog</a> |
-        <a href="https://newsletter.ragas.io/">NewsLetter</a> |
-        <a href="https://www.ragas.io/careers">Careers</a>
-    <p>
-</h4>
+## 项目结构
 
-Objective metrics, intelligent test generation, and data-driven insights for LLM apps
-
-Ragas is your ultimate toolkit for evaluating and optimizing Large Language Model (LLM) applications. Say goodbye to time-consuming, subjective assessments and hello to data-driven, efficient evaluation workflows.
-Don't have a test dataset ready? We also do production-aligned test set generation.
-
-> [!NOTE]
-> Need help setting up Evals for your AI application? We'd love to help! We are conducting Office Hours every week. You can sign up [here](https://cal.com/team/vibrantlabs/office-hours).
-
-## Key Features
-
-- 🎯 Objective Metrics: Evaluate your LLM applications with precision using both LLM-based and traditional metrics.
-- 🧪 Test Data Generation: Automatically create comprehensive test datasets covering a wide range of scenarios.
-- 🔗 Seamless Integrations: Works flawlessly with popular LLM frameworks like LangChain and major observability tools.
-- 📊 Build feedback loops: Leverage production data to continually improve your LLM applications.
-
-## :shield: Installation
-
-Pypi:
-
-```bash
-pip install ragas
+```
+.
+├── README.md                    # 项目说明文档
+├── config.json                  # 配置文件
+├── test_data.json               # 示例测试数据
+├── simple_test.py               # 简化测试脚本
+├── ragas_siliconflow_milvus_test.py  # 完整集成测试脚本
+├── siliconflow_embeddings.py     # SiliconFlow API 嵌入模型
+├── milvus_connector.py          # Milvus 向量数据库连接器
+└── json_dataset_extractor.py     # JSON 数据集提取器
 ```
 
-Alternatively, from source:
+## 功能特性
+
+- **SiliconFlow API 集成**: 使用 SiliconFlow 的嵌入模型生成文本向量
+- **Milvus 向量数据库**: 高效存储和检索向量数据
+- **JSON 数据集处理**: 从 JSON 文档自动生成评估数据集
+- **Ragas 评估**: 使用多种指标评估 RAG 系统性能
+- **端到端测试**: 完整的集成测试流程
+
+## 安装依赖
 
 ```bash
-pip install git+https://github.com/vibrantlabsai/ragas
+# 安装基础依赖
+pip install ragas pymilvus requests aiohttp numpy
+
+# 安装 OpenAI 支持（用于评估）
+pip install openai
+
+# 可选：安装其他依赖
+pip install sentence-transformers  # 用于本地嵌入模型
+pip install matplotlib pandas       # 用于结果可视化
 ```
 
-## :fire: Quickstart
+## 配置设置
 
-### Clone a Complete Example Project
-
-The fastest way to get started is to use the `ragas quickstart` command:
+### 1. 环境变量设置
 
 ```bash
-# List available templates
-ragas quickstart
+# 设置 SiliconFlow API 密钥
+export SILICONFLOW_API_KEY="your-siliconflow-api-key"
 
-# Create a RAG evaluation project
-ragas quickstart rag_eval
-
-# Specify where you want to create it.
-ragas quickstart rag_eval -o ./my-project
+# 设置 OpenAI API 密钥（用于评估）
+export OPENAI_API_KEY="your-openai-api-key"
 ```
 
-Available templates:
-- `rag_eval` - Evaluate RAG systems
+### 2. 配置文件设置
 
-Coming Soon:
-- `agent_evals` - Evaluate AI agents
-- `benchmark_llm` - Benchmark and compare LLMs
-- `prompt_evals` - Evaluate prompt variations
-- `workflow_eval` - Evaluate complex workflows
+编辑 `config.json` 文件：
 
-### Evaluate your LLM App
+```json
+{
+  "siliconflow_api_key": "your-siliconflow-api-key",
+  "openai_api_key": "your-openai-api-key",
+  "json_data_path": "test_data.json",
+  "embedding_model": "BAAI/bge-large-zh-v1.5",
+  "evaluator_model": "gpt-4o-mini",
+  "milvus_host": "localhost",
+  "milvus_port": 19530,
+  "milvus_collection": "ragas_test_docs",
+  "num_samples": 10
+}
+```
 
-This is a simple example evaluating a summary for accuracy:
+## 使用方法
+
+### 1. 快速测试
+
+运行简化测试脚本验证基本功能：
+
+```bash
+python simple_test.py
+```
+
+这个脚本会测试：
+- SiliconFlow 嵌入功能
+- JSON 数据集提取
+- 基本集成功能
+
+### 2. 完整集成测试
+
+运行完整的集成测试：
+
+```bash
+python ragas_siliconflow_milvus_test.py
+```
+
+这个脚本会执行：
+- 初始化所有组件
+- 设置 Milvus 集合和索引
+- 加载文档到向量数据库
+- 创建评估数据集
+- 运行 Ragas 评估
+- 生成评估报告
+
+### 3. 单独使用组件
+
+#### SiliconFlow 嵌入模型
 
 ```python
-import asyncio
-from ragas.metrics.collections import AspectCritic
-from ragas.llms import llm_factory
+from siliconflow_embeddings import SiliconFlowEmbeddings
 
-# Setup your LLM
-llm = llm_factory("gpt-4o")
+# 创建嵌入模型
+embeddings = SiliconFlowEmbeddings(api_key="your-api-key")
 
-# Create a metric
-metric = AspectCritic(
-    name="summary_accuracy",
-    definition="Verify if the summary is accurate and captures key information.",
-    llm=llm
-)
+# 生成嵌入向量
+text = "这是一个测试文本"
+embedding = embeddings.embed_text(text)
 
-# Evaluate
-test_data = {
-    "user_input": "summarise given text\nThe company reported an 8% rise in Q3 2024, driven by strong performance in the Asian market. Sales in this region have significantly contributed to the overall growth. Analysts attribute this success to strategic marketing and product localization. The positive trend in the Asian market is expected to continue into the next quarter.",
-    "response": "The company experienced an 8% increase in Q3 2024, largely due to effective marketing strategies and product adaptation, with expectations of continued growth in the coming quarter.",
-}
-
-score = await metric.ascore(
-    user_input=test_data["user_input"],
-    response=test_data["response"]
-)
-print(f"Score: {score.value}")
-print(f"Reason: {score.reason}")
+# 批量生成嵌入
+texts = ["文本1", "文本2", "文本3"]
+embeddings = embeddings.embed_documents(texts)
 ```
 
-> **Note**: Make sure your `OPENAI_API_KEY` environment variable is set.
+#### Milvus 连接器
 
-Find the complete [Quickstart Guide](https://docs.ragas.io/en/latest/getstarted/evals)
+```python
+from milvus_connector import MilvusConnector
+from siliconflow_embeddings import SiliconFlowEmbeddings
 
-## Want help in improving your AI application using evals?
+# 创建连接器
+milvus = MilvusConnector(host="localhost", port=19530)
 
-In the past 2 years, we have seen and helped improve many AI applications using evals. If you want help with improving and scaling up your AI application using evals.
+# 连接到 Milvus
+milvus.connect()
 
-🔗 Book a [slot](https://cal.com/team/vibrantlabs/app) or drop us a line: [founders@vibrantlabs.com](mailto:founders@vibrantlabs.com).
+# 创建集合
+embeddings = SiliconFlowEmbeddings(api_key="your-api-key")
+dimension = embeddings.get_embedding_dimension()
+milvus.create_collection(dimension)
 
-## 🫂 Community
+# 插入文档
+documents = [
+    {"id": "doc1", "content": "文档内容", "metadata": {"category": "test"}}
+]
+milvus.insert_documents(documents, embeddings)
 
-If you want to get more involved with Ragas, check out our [discord server](https://discord.gg/5qGUJ6mh7C). It's a fun community where we geek out about LLM, Retrieval, Production issues, and more.
-
-## Contributors
-
-```yml
-+----------------------------------------------------------------------------+
-|     +----------------------------------------------------------------+     |
-|     | Developers: Those who built with `ragas`.                      |     |
-|     | (You have `import ragas` somewhere in your project)            |     |
-|     |     +----------------------------------------------------+     |     |
-|     |     | Contributors: Those who make `ragas` better.       |     |     |
-|     |     | (You make PR to this repo)                         |     |     |
-|     |     +----------------------------------------------------+     |     |
-|     +----------------------------------------------------------------+     |
-+----------------------------------------------------------------------------+
+# 搜索文档
+results = milvus.search("查询文本", embeddings, top_k=5)
 ```
 
-We welcome contributions from the community! Whether it's bug fixes, feature additions, or documentation improvements, your input is valuable.
+#### JSON 数据集提取器
 
-1. Fork the repository
-2. Create your feature branch (git checkout -b feature/AmazingFeature)
-3. Commit your changes (git commit -m 'Add some AmazingFeature')
-4. Push to the branch (git push origin feature/AmazingFeature)
-5. Open a Pull Request
+```python
+from json_dataset_extractor import JSONDatasetExtractor
 
-## 🔍 Open Analytics
+# 创建提取器
+extractor = JSONDatasetExtractor("test_data.json")
 
-At Ragas, we believe in transparency. We collect minimal, anonymized usage data to improve our product and guide our development efforts.
+# 加载文档
+documents = extractor.load_documents()
 
-✅ No personal or company-identifying information
+# 生成查询样本
+query_samples = extractor.generate_query_samples(num_samples=10)
 
-✅ Open-source data collection [code](./src/ragas/_analytics.py)
-
-✅ Publicly available aggregated [data](https://github.com/vibrantlabsai/ragas/issues/49)
-
-To opt-out, set the `RAGAS_DO_NOT_TRACK` environment variable to `true`.
-
-### Cite Us
-
+# 创建 Ragas 数据集
+dataset = extractor.create_ragas_dataset()
 ```
-@misc{ragas2024,
-  author       = {VibrantLabs},
-  title        = {Ragas: Supercharge Your LLM Application Evaluations},
-  year         = {2024},
-  howpublished = {\url{https://github.com/vibrantlabsai/ragas}},
-}
+
+## 数据格式
+
+### 输入 JSON 格式
+
+```json
+[
+  {
+    "id": "doc1",
+    "content": "文档内容",
+    "metadata": {
+      "category": "concept",
+      "difficulty": "easy"
+    }
+  }
+]
 ```
+
+### 输出数据集格式
+
+生成的数据集包含：
+- `question`: 查询问题
+- `expected_answer`: 期望答案
+- `context`: 上下文文档
+- `metadata`: 元数据信息
+
+## 评估指标
+
+Ragas 评估使用以下指标：
+
+- **Context Precision**: 上下文精确度
+- **Context Recall**: 上下文召回率
+- **Faithfulness**: 忠实度
+- **Answer Relevancy**: 答案相关性
+
+## 故障排除
+
+### 常见问题
+
+1. **SiliconFlow API 连接失败**
+   - 检查 API 密钥是否正确
+   - 确认网络连接正常
+   - 验证模型名称是否支持
+
+2. **Milvus 连接失败**
+   - 确认 Milvus 服务正在运行
+   - 检查主机和端口配置
+   - 验证用户名和密码（如果需要）
+
+3. **评估失败**
+   - 检查 OpenAI API 密钥
+   - 确认有足够的 API 配额
+   - 验证模型名称正确
+
+### 调试模式
+
+在脚本中添加调试信息：
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+## 扩展功能
+
+### 添加新的嵌入模型
+
+1. 继承 `BaseRagasEmbedding` 类
+2. 实现 `embed_text` 和 `aembed_text` 方法
+3. 添加批处理优化
+
+### 添加新的评估指标
+
+1. 继承 Ragas 的基础指标类
+2. 实现评估逻辑
+3. 集成到评估流程中
+
+### 支持其他向量数据库
+
+1. 创建新的连接器类
+2. 实现标准的 CRUD 操作
+3. 添加搜索和相似度计算
+
+## 许可证
+
+本项目遵循 MIT 许可证。
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request 来改进这个项目。
+
+## 联系方式
+
+如有问题，请通过 GitHub Issues 联系。

@@ -1,0 +1,15 @@
+{
+  "siliconflow_api_key": "your-siliconflow-api-key-here",
+  "llm_provider": "siliconflow",
+  "llm_base_url": "https://api.siliconflow.cn/v1",
+  "llm_api_key": "your-siliconflow-api-key-here",
+  "json_data_path": "test_data.json",
+  "embedding_model": "BAAI/bge-large-zh-v1.5",
+  "evaluator_model": "Qwen/Qwen2.5-7B-Instruct",
+  "milvus_host": "localhost",
+  "milvus_port": 19530,
+  "milvus_user": null,
+  "milvus_password": null,
+  "milvus_collection": "ragas_test_docs",
+  "num_samples": 10
+}
