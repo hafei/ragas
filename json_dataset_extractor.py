@@ -232,6 +232,7 @@ class JSONDatasetExtractor:
             # 创建 Ragas SingleTurnSample
             sample = SingleTurnSample(
                 user_input=query_sample.question,
+                response=query_sample.expected_answer,  # 添加 response 字段，使用期望答案作为响应
                 retrieved_contexts=query_sample.context,
                 reference=query_sample.expected_answer,
                 metadata=query_sample.metadata
@@ -240,7 +241,7 @@ class JSONDatasetExtractor:
         
         # 创建评估数据集
         dataset = EvaluationDataset(samples=samples)
-        print(f"成功创建包含 {len(samples)} 个样本的 Ragas 数据集")
+        print(f"成功创建包含 {len(samples)} 个样本的 Ragas 数据集（包含 response 字段）")
         
         return dataset
     

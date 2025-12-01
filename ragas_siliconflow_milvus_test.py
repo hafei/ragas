@@ -244,24 +244,36 @@ class RagasSiliconFlowMilvusTest:
                 print("警告: 未配置评估 LLM，跳过评估")
                 return {"error": "未配置评估 LLM"}
             
-            # 定义评估指标
-            metrics = [
-                ContextPrecision(llm=self.evaluator_llm),
-                ContextRecall(llm=self.evaluator_llm),
-                Faithfulness(llm=self.evaluator_llm),
-                AnswerRelevancy(llm=self.evaluator_llm)
-            ]
+            # 设置环境变量以避免 API 密钥错误
+            old_openai_key = os.environ.get("OPENAI_API_KEY")
+            os.environ["OPENAI_API_KEY"] = self.config["llm_api_key"]
             
-            print(f"使用 {len(metrics)} 个评估指标")
-            
-            # 运行评估
-            result = evaluate(dataset=dataset, metrics=metrics)
-            summary = self._extract_metric_summary(result)
-            
-            print("成功: 评估完成")
-            print(f"评估结果: {summary}")
-            
-            return summary
+            try:
+                # 定义评估指标
+                metrics = [
+                    ContextPrecision(llm=self.evaluator_llm),
+                    ContextRecall(llm=self.evaluator_llm),
+                    Faithfulness(llm=self.evaluator_llm),
+                    AnswerRelevancy(llm=self.evaluator_llm, embeddings=self.embeddings)
+                ]
+                
+                print(f"使用 {len(metrics)} 个评估指标")
+                
+                # 运行评估
+                result = evaluate(dataset=dataset, metrics=metrics)
+                summary = self._extract_metric_summary(result)
+                
+                print("成功: 评估完成")
+                print(f"评估结果: {summary}")
+                
+                return summary
+                
+            finally:
+                # 恢复原始环境变量
+                if old_openai_key is not None:
+                    os.environ["OPENAI_API_KEY"] = old_openai_key
+                else:
+                    os.environ.pop("OPENAI_API_KEY", None)
             
         except Exception as e:
             print(f"失败: Ragas 评估失败: {e}")
