@@ -1,0 +1,135 @@
+# Milvus 向量数据库和 Attu 管理界面 Docker Compose 配置
+# 版本信息：
+# - Milvus: v2.6.6 (最新稳定版)
+# - Attu: v2.6 (与 Milvus 版本对应)
+# - etcd: v3.5.9 (Milvus 依赖的元数据存储)
+# - MinIO: RELEASE.2023-12-14T18-51-57Z (Milvus 依赖的对象存储)
+
+# 定义网络
+networks:
+  # Milvus 专用网络，提供服务间隔离
+  milvus-network:
+    driver: bridge
+
+# 定义存储卷
+volumes:
+  # etcd 数据持久化存储
+  etcd-data:
+    driver: local
+  # MinIO 数据持久化存储
+  minio-data:
+    driver: local
+  # Milvus 数据持久化存储
+  milvus-data:
+    driver: local
+
+services:
+  # etcd 服务 - Milvus 的元数据存储后端
+  etcd:
+    container_name: milvus-etcd
+    image: quay.io/coreos/etcd:v3.5.9
+    environment:
+      # etcd 配置
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      # 挂载数据卷实现持久化
+      - etcd-data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    healthcheck:
+      # 健康检查配置
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - milvus-network
+    restart: on-failure
+
+  # MinIO 服务 - Milvus 的对象存储后端
+  minio:
+    container_name: milvus-minio
+    image: minio/minio:RELEASE.2023-12-14T18-51-57Z
+    environment:
+      # MinIO 访问凭证
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      # 暴露 MinIO Web 管理界面端口
+      - "9001:9001"
+      # 暴露 MinIO API 端口
+      - "9000:9000"
+    volumes:
+      # 挂载数据卷实现持久化
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      # 健康检查配置
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - milvus-network
+    restart: on-failure
+
+  # Milvus 核心服务
+  milvus:
+    container_name: milvus-standalone
+    image: milvusdb/milvus:v2.6.6
+    command: ["milvus", "run", "standalone"]
+    environment:
+      # etcd 连接配置
+      ETCD_ENDPOINTS: etcd:2379
+      # MinIO 连接配置
+      MINIO_ADDRESS: minio:9000
+      # MinIO 访问凭证
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    volumes:
+      # 挂载数据卷实现持久化
+      - milvus-data:/var/lib/milvus
+    ports:
+      # 暴露 Milvus gRPC 端口（默认 19530）
+      - "19530:19530"
+      # 暴露 Milvus RESTful API 端口
+      - "9091:9091"
+    depends_on:
+      # 确保依赖服务先启动
+      - "etcd"
+      - "minio"
+    healthcheck:
+      # 健康检查配置
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    networks:
+      - milvus-network
+    restart: on-failure
+
+  # Attu 管理界面 - Milvus 的 Web UI
+  attu:
+    container_name: milvus-attu
+    image: zilliz/attu:v2.6
+    environment:
+      # Milvus 连接地址
+      MILVUS_URL: milvus-standalone:19530
+    ports:
+      # 暴露 Attu Web 界面端口
+      - "3000:3000"
+    depends_on:
+      # 确保依赖服务先启动
+      - "milvus"
+    healthcheck:
+      # 健康检查配置
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - milvus-network
+    restart: on-failure

@@ -108,11 +108,13 @@ def test_config_loading():
         # 验证必需的配置项
         required_keys = [
             "siliconflow_api_key",
+            "embedding_api_key",
+            "embedding_base_url",
+            "embedding_model",
             "llm_provider",
             "llm_base_url",
             "llm_api_key",
             "json_data_path",
-            "embedding_model",
             "evaluator_model",
             "milvus_host",
             "milvus_port"

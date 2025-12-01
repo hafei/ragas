@@ -20,12 +20,13 @@ dependencies = [
     "pillow>=10.4.0",
     "networkx",
     "scikit-network",
-
     # LangChain ecosystem
     "langchain",
     "langchain-core",
     "langchain-community",
     "langchain_openai",
+    "pymilvus>=2.6.4",
+    "aiohttp>=3.13.2",
 ]
 dynamic = ["version", "readme"]
 

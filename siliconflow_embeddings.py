@@ -92,8 +92,17 @@ class SiliconFlowEmbeddings(BaseEmbedding):
             "encoding_format": "float"
         }
         
+        # 创建一个超时配置
+        timeout = aiohttp.ClientTimeout(total=30.0)
+        
         try:
-            async with aiohttp.ClientSession(headers=self.headers) as session:
+            # 使用更安全的会话管理方式
+            connector = aiohttp.TCPConnector(limit=100, force_close=True)
+            async with aiohttp.ClientSession(
+                headers=self.headers,
+                connector=connector,
+                timeout=timeout
+            ) as session:
                 async with session.post(url, json=payload) as response:
                     response.raise_for_status()
                     result = await response.json()
@@ -112,6 +121,8 @@ class SiliconFlowEmbeddings(BaseEmbedding):
             raise Exception(f"SiliconFlow API 响应解析失败: {e}")
         except KeyError as e:
             raise Exception(f"SiliconFlow API 响应格式错误: {e}")
+        except asyncio.TimeoutError:
+            raise Exception("SiliconFlow API 请求超时")
     
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """获取多个文档的嵌入向量（批处理）"""

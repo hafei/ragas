@@ -45,11 +45,15 @@ class RagasSiliconFlowMilvusTest:
             
             # 1. 初始化 SiliconFlow 嵌入模型
             print("1. 初始化 SiliconFlow 嵌入模型...")
+            # 选择嵌入 API 密钥
+            embedding_api_key = self.config.get("embedding_api_key") or self.config["siliconflow_api_key"]
+            embedding_base_url = self.config.get("embedding_base_url")
             self.embeddings = SiliconFlowEmbeddings(
-                api_key=self.config["siliconflow_api_key"],
-                model_name=self.config.get("embedding_model", "BAAI/bge-large-zh-v1.5")
+                api_key=embedding_api_key,
+                model_name=self.config.get("embedding_model", "BAAI/bge-large-zh-v1.5"),
+                base_url=embedding_base_url if embedding_base_url else "https://api.siliconflow.cn/v1"
             )
-            print("✓ SiliconFlow 嵌入模型初始化成功")
+            print("成功: SiliconFlow 嵌入模型初始化成功")
             
             # 2. 初始化 Milvus 连接器
             print("2. 初始化 Milvus 连接器...")
@@ -63,14 +67,14 @@ class RagasSiliconFlowMilvusTest:
             
             if not self.milvus.connect():
                 raise Exception("Milvus 连接失败")
-            print("✓ Milvus 连接成功")
+            print("成功: Milvus 连接成功")
             
             # 3. 初始化数据集提取器
             print("3. 初始化数据集提取器...")
             self.dataset_extractor = JSONDatasetExtractor(
                 self.config["json_data_path"]
             )
-            print("✓ 数据集提取器初始化成功")
+            print("成功: 数据集提取器初始化成功")
             
             # 4. 初始化评估 LLM（使用 OpenAI 兼容的供应商）
             print("4. 初始化评估 LLM...")
@@ -89,15 +93,15 @@ class RagasSiliconFlowMilvusTest:
                 )
                 
                 provider_name = self.config.get("llm_provider", "OpenAI")
-                print(f"✓ {provider_name} 评估 LLM 初始化成功")
+                print(f"成功: {provider_name} 评估 LLM 初始化成功")
             else:
-                print("⚠ 未提供 LLM API 密钥，将使用模拟评估")
+                print("警告: 未提供 LLM API 密钥，将使用模拟评估")
                 self.evaluator_llm = None
             
             return True
             
         except Exception as e:
-            print(f"✗ 初始化失败: {e}")
+            print(f"失败: 初始化失败: {e}")
             return False
     
     def setup_milvus_collection(self) -> bool:
@@ -115,17 +119,17 @@ class RagasSiliconFlowMilvusTest:
             # 创建集合
             if not self.milvus.create_collection(dimension):
                 raise Exception("创建 Milvus 集合失败")
-            print("✓ Milvus 集合创建成功")
+            print("成功: Milvus 集合创建成功")
             
             # 创建索引
             if not self.milvus.create_index():
                 raise Exception("创建 Milvus 索引失败")
-            print("✓ Milvus 索引创建成功")
+            print("成功: Milvus 索引创建成功")
             
             return True
             
         except Exception as e:
-            print(f"✗ Milvus 集合设置失败: {e}")
+            print(f"失败: Milvus 集合设置失败: {e}")
             return False
     
     def load_documents_to_milvus(self) -> bool:
@@ -156,12 +160,12 @@ class RagasSiliconFlowMilvusTest:
             if not self.milvus.insert_documents(milvus_docs, self.embeddings):
                 raise Exception("插入文档到 Milvus 失败")
             
-            print(f"✓ 成功插入 {len(milvus_docs)} 个文档到 Milvus")
+            print(f"成功: 成功插入 {len(milvus_docs)} 个文档到 Milvus")
 
             # 将集合加载到内存以便后续搜索
             if not self.milvus.load_collection():
                 raise Exception("加载 Milvus 集合到内存失败")
-            print("✓ Milvus 集合已加载到内存，准备搜索")
+            print("成功: Milvus 集合已加载到内存，准备搜索")
             
             # 显示集合统计
             stats = self.milvus.get_collection_stats()
@@ -170,7 +174,7 @@ class RagasSiliconFlowMilvusTest:
             return True
             
         except Exception as e:
-            print(f"✗ 加载文档失败: {e}")
+            print(f"失败: 加载文档失败: {e}")
             return False
     
     def create_evaluation_dataset(self) -> Optional[EvaluationDataset]:
@@ -191,12 +195,12 @@ class RagasSiliconFlowMilvusTest:
             # 创建 Ragas 数据集
             dataset = self.dataset_extractor.create_ragas_dataset()
             
-            print(f"✓ 创建了包含 {len(dataset.samples)} 个样本的评估数据集")
+            print(f"成功: 创建了包含 {len(dataset.samples)} 个样本的评估数据集")
             
             return dataset
             
         except Exception as e:
-            print(f"✗ 创建评估数据集失败: {e}")
+            print(f"失败: 创建评估数据集失败: {e}")
             return None
     
     def test_milvus_search(self) -> bool:
@@ -224,11 +228,11 @@ class RagasSiliconFlowMilvusTest:
                 else:
                     print("  未找到相关文档")
             
-            print("✓ Milvus 搜索测试完成")
+            print("成功: Milvus 搜索测试完成")
             return True
             
         except Exception as e:
-            print(f"✗ Milvus 搜索测试失败: {e}")
+            print(f"失败: Milvus 搜索测试失败: {e}")
             return False
     
     def run_ragas_evaluation(self, dataset: EvaluationDataset) -> Dict[str, Any]:
@@ -237,7 +241,7 @@ class RagasSiliconFlowMilvusTest:
             print("\n=== 运行 Ragas 评估 ===")
             
             if not self.evaluator_llm:
-                print("⚠ 未配置评估 LLM，跳过评估")
+                print("警告: 未配置评估 LLM，跳过评估")
                 return {"error": "未配置评估 LLM"}
             
             # 定义评估指标
@@ -254,13 +258,13 @@ class RagasSiliconFlowMilvusTest:
             result = evaluate(dataset=dataset, metrics=metrics)
             summary = self._extract_metric_summary(result)
             
-            print("✓ 评估完成")
+            print("成功: 评估完成")
             print(f"评估结果: {summary}")
             
             return summary
             
         except Exception as e:
-            print(f"✗ Ragas 评估失败: {e}")
+            print(f"失败: Ragas 评估失败: {e}")
             return {"error": str(e)}
 
     @staticmethod
@@ -283,9 +287,82 @@ class RagasSiliconFlowMilvusTest:
                     if numeric_values:
                         summary[metric] = sum(numeric_values) / len(numeric_values)
         else:
-            print("⚠ 未识别的评估结果类型，无法生成指标摘要")
+            print("警告: 未识别的评估结果类型，无法生成指标摘要")
 
         return summary
+    
+    def _generate_response_from_context(self, question: str, contexts: List[str]) -> str:
+        """
+        基于检索到的上下文使用 LLM 生成回答
+        
+        Args:
+            question: 用户问题
+            contexts: 检索到的上下文列表
+            
+        Returns:
+            str: 生成的回答
+        """
+        try:
+            if not self.evaluator_llm:
+                raise RuntimeError("评估 LLM 未初始化，无法生成响应")
+            
+            # 构建提示词
+            context_text = "\n\n".join([f"上下文 {i+1}: {ctx}" for i, ctx in enumerate(contexts)])
+            prompt = f"""请基于以下上下文回答问题。请确保你的回答完全基于提供的上下文，不要添加外部信息。
+
+{context_text}
+
+问题: {question}
+
+回答:"""
+            
+            # 使用 LLM 生成回答
+            from openai import AsyncOpenAI
+            import asyncio
+            
+            # 获取客户端配置
+            client = AsyncOpenAI(
+                api_key=self.config["llm_api_key"],
+                base_url=self.config.get("llm_base_url", "https://api.openai.com/v1")
+            )
+            
+            # 使用现有的或新的事件循环
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            try:
+                response = loop.run_until_complete(
+                    client.chat.completions.create(
+                        model=self.config.get("evaluator_model", "gpt-4o-mini"),
+                        messages=[
+                            {"role": "system", "content": "你是一个有帮助的助手，请基于提供的上下文准确回答问题。"},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.1,
+                        max_tokens=500
+                    )
+                )
+                answer = response.choices[0].message.content.strip()
+            finally:
+                # 确保客户端正确关闭
+                try:
+                    loop.run_until_complete(client.close())
+                except Exception as e:
+                    print(f"关闭客户端时出错: {e}")
+                # 不要关闭事件循环，因为它可能被其他任务使用
+            
+            return answer
+            
+        except Exception as e:
+            print(f"生成回答时出错: {e}")
+            # 如果生成失败，返回一个基于上下文的简单回答
+            return f"基于提供的上下文，无法完全回答该问题。"
     
     def create_retrieval_evaluation_dataset(self) -> Optional[EvaluationDataset]:
         """创建基于检索的评估数据集"""
@@ -297,6 +374,8 @@ class RagasSiliconFlowMilvusTest:
                 raise RuntimeError("数据集提取器未初始化")
             if not self.milvus or not self.embeddings:
                 raise RuntimeError("Milvus 或嵌入模型未初始化")
+            if not self.evaluator_llm:
+                raise RuntimeError("评估 LLM 未初始化，无法生成响应")
 
             query_samples = self.dataset_extractor.query_samples
             if not query_samples:
@@ -304,7 +383,9 @@ class RagasSiliconFlowMilvusTest:
             
             retrieval_samples = []
             
-            for query_sample in query_samples:
+            for i, query_sample in enumerate(query_samples):
+                print(f"处理样本 {i+1}/{len(query_samples)}: {query_sample.question[:30]}...")
+                
                 # 使用 Milvus 检索相关文档
                 retrieved_docs = self.milvus.search(
                     query_sample.question,
@@ -315,9 +396,16 @@ class RagasSiliconFlowMilvusTest:
                 # 提取检索到的内容
                 retrieved_contexts = [doc["content"] for doc in retrieved_docs]
                 
+                # 使用 LLM 基于上下文生成回答
+                generated_response = self._generate_response_from_context(
+                    query_sample.question,
+                    retrieved_contexts
+                )
+                
                 # 创建 Ragas 样本
                 sample = SingleTurnSample(
                     user_input=query_sample.question,
+                    response=generated_response,  # 添加生成的响应
                     retrieved_contexts=retrieved_contexts,
                     reference=query_sample.expected_answer,
                     metadata={
@@ -331,12 +419,12 @@ class RagasSiliconFlowMilvusTest:
             # 创建评估数据集
             retrieval_dataset = EvaluationDataset(samples=retrieval_samples)
             
-            print(f"✓ 创建了包含 {len(retrieval_samples)} 个样本的检索评估数据集")
+            print(f"成功: 创建了包含 {len(retrieval_samples)} 个样本的检索评估数据集")
             
             return retrieval_dataset
             
         except Exception as e:
-            print(f"✗ 创建检索评估数据集失败: {e}")
+            print(f"失败: 创建检索评估数据集失败: {e}")
             return None
     
     def run_complete_test(self) -> Dict[str, Any]:
@@ -381,19 +469,22 @@ class RagasSiliconFlowMilvusTest:
             evaluation_results = self.run_ragas_evaluation(dataset)
             results["evaluation_results"] = evaluation_results
             
-            # 7. 创建基于检索的评估数据集
-            retrieval_dataset = self.create_retrieval_evaluation_dataset()
-            if retrieval_dataset:
-                # 8. 运行检索评估
-                retrieval_evaluation_results = self.run_ragas_evaluation(retrieval_dataset)
-                results["retrieval_evaluation_results"] = retrieval_evaluation_results
+            # 7. 创建基于检索的评估数据集（仅在 LLM 已初始化时）
+            if self.evaluator_llm:
+                retrieval_dataset = self.create_retrieval_evaluation_dataset()
+                if retrieval_dataset:
+                    # 8. 运行检索评估
+                    retrieval_evaluation_results = self.run_ragas_evaluation(retrieval_dataset)
+                    results["retrieval_evaluation_results"] = retrieval_evaluation_results
+            else:
+                print("警告: 未配置评估 LLM，跳过检索评估")
             
             print("\n=== 测试完成 ===")
-            print("所有测试步骤已成功完成！")
+            print("成功: 所有测试步骤已成功完成！")
             
         except Exception as e:
             error_msg = f"测试过程中发生错误: {e}"
-            print(f"✗ {error_msg}")
+            print(f"失败: {error_msg}")
             results["errors"].append(error_msg)
         
         finally:
@@ -412,13 +503,16 @@ def load_config(config_path: str = "config.json") -> Dict[str, Any]:
                 return json.load(f)
         else:
             # 返回默认配置
+            siliconflow_api_key = os.getenv("SILICONFLOW_API_KEY", "")
             return {
-                "siliconflow_api_key": os.getenv("SILICONFLOW_API_KEY", ""),
+                "siliconflow_api_key": siliconflow_api_key,
+                "embedding_api_key": siliconflow_api_key,
+                "embedding_base_url": os.getenv("EMBEDDING_BASE_URL", "https://api.siliconflow.cn/v1"),
+                "embedding_model": "BAAI/bge-large-zh-v1.5",
                 "llm_provider": os.getenv("LLM_PROVIDER", "siliconflow"),
                 "llm_base_url": os.getenv("LLM_BASE_URL", "https://api.siliconflow.cn/v1"),
-                "llm_api_key": os.getenv("LLM_API_KEY", os.getenv("SILICONFLOW_API_KEY", "")),
+                "llm_api_key": os.getenv("LLM_API_KEY", siliconflow_api_key),
                 "json_data_path": "test_data.json",
-                "embedding_model": "BAAI/bge-large-zh-v1.5",
                 "evaluator_model": os.getenv("EVALUATOR_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
                 "milvus_host": "localhost",
                 "milvus_port": 19530,
@@ -452,10 +546,10 @@ def main():
     # 输出结果摘要
     print("\n" + "=" * 50)
     print("测试结果摘要:")
-    print(f"组件设置: {'✓' if results['setup_success'] else '✗'}")
-    print(f"Milvus 设置: {'✓' if results['milvus_setup_success'] else '✗'}")
-    print(f"文档加载: {'✓' if results['documents_loaded'] else '✗'}")
-    print(f"搜索测试: {'✓' if results['search_test_success'] else '✗'}")
+    print(f"组件设置: {'成功' if results['setup_success'] else '失败'}")
+    print(f"Milvus 设置: {'成功' if results['milvus_setup_success'] else '失败'}")
+    print(f"文档加载: {'成功' if results['documents_loaded'] else '失败'}")
+    print(f"搜索测试: {'成功' if results['search_test_success'] else '失败'}")
     
     if results["evaluation_results"]:
         print(f"\n基础评估结果:")

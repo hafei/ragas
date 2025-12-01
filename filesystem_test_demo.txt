@@ -1,0 +1,6 @@
+这是filesystem MCP服务器的演示文件。
+
+创建时间：2025-12-01
+服务器名称：github.com/modelcontextprotocol/servers/tree/main/src/filesystem
+
+此文件用于演示filesystem MCP服务器的写入功能。
