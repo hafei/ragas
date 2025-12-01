@@ -17,7 +17,7 @@ from json_dataset_extractor import JSONDatasetExtractor
 from ragas import evaluate
 from ragas.metrics import ContextPrecision, ContextRecall, Faithfulness, AnswerRelevancy
 from ragas.llms import llm_factory, BaseRagasLLM, InstructorBaseRagasLLM
-from ragas.dataset_schema import EvaluationDataset, SingleTurnSample
+from ragas.dataset_schema import EvaluationDataset, SingleTurnSample, EvaluationResult
 
 
 class RagasSiliconFlowMilvusTest:
@@ -33,10 +33,10 @@ class RagasSiliconFlowMilvusTest:
             config: 配置字典，包含 API 密钥、数据库连接等信息
         """
         self.config = config
-        self.embeddings = None
-        self.milvus = None
-        self.dataset_extractor = None
-        self.evaluator_llm = None
+        self.embeddings: Optional[SiliconFlowEmbeddings] = None
+        self.milvus: Optional[MilvusConnector] = None
+        self.dataset_extractor: Optional[JSONDatasetExtractor] = None
+        self.evaluator_llm: Optional[Any] = None
         
     def setup(self) -> bool:
         """设置所有组件"""
@@ -104,6 +104,9 @@ class RagasSiliconFlowMilvusTest:
         """设置 Milvus 集合"""
         try:
             print("\n=== 设置 Milvus 集合 ===")
+
+            if not self.milvus or not self.embeddings:
+                raise RuntimeError("Milvus 或嵌入模型未初始化，请先调用 setup()")
             
             # 获取嵌入维度
             dimension = self.embeddings.get_embedding_dimension()
@@ -129,6 +132,9 @@ class RagasSiliconFlowMilvusTest:
         """加载文档到 Milvus"""
         try:
             print("\n=== 加载文档到 Milvus ===")
+
+            if not self.dataset_extractor or not self.milvus or not self.embeddings:
+                raise RuntimeError("组件未初始化，请先运行 setup()")
             
             # 加载文档
             documents = self.dataset_extractor.load_documents()
@@ -151,6 +157,11 @@ class RagasSiliconFlowMilvusTest:
                 raise Exception("插入文档到 Milvus 失败")
             
             print(f"✓ 成功插入 {len(milvus_docs)} 个文档到 Milvus")
+
+            # 将集合加载到内存以便后续搜索
+            if not self.milvus.load_collection():
+                raise Exception("加载 Milvus 集合到内存失败")
+            print("✓ Milvus 集合已加载到内存，准备搜索")
             
             # 显示集合统计
             stats = self.milvus.get_collection_stats()
@@ -162,10 +173,13 @@ class RagasSiliconFlowMilvusTest:
             print(f"✗ 加载文档失败: {e}")
             return False
     
-    def create_evaluation_dataset(self) -> EvaluationDataset:
+    def create_evaluation_dataset(self) -> Optional[EvaluationDataset]:
         """创建评估数据集"""
         try:
             print("\n=== 创建评估数据集 ===")
+
+            if not self.dataset_extractor:
+                raise RuntimeError("数据集提取器未初始化")
             
             # 生成查询样本
             query_samples = self.dataset_extractor.generate_query_samples(
@@ -189,6 +203,9 @@ class RagasSiliconFlowMilvusTest:
         """测试 Milvus 搜索功能"""
         try:
             print("\n=== 测试 Milvus 搜索 ===")
+
+            if not self.milvus or not self.embeddings:
+                raise RuntimeError("Milvus 或嵌入模型未初始化")
             
             test_queries = [
                 "什么是向量数据库？",
@@ -235,23 +252,55 @@ class RagasSiliconFlowMilvusTest:
             
             # 运行评估
             result = evaluate(dataset=dataset, metrics=metrics)
+            summary = self._extract_metric_summary(result)
             
             print("✓ 评估完成")
-            print(f"评估结果: {result}")
+            print(f"评估结果: {summary}")
             
-            return result
+            return summary
             
         except Exception as e:
             print(f"✗ Ragas 评估失败: {e}")
             return {"error": str(e)}
+
+    @staticmethod
+    def _extract_metric_summary(result: Any) -> Dict[str, float]:
+        """将 Ragas EvaluationResult 转换为简单的指标字典"""
+        summary: Dict[str, float] = {}
+
+        if isinstance(result, EvaluationResult):
+            repr_dict = getattr(result, "_repr_dict", None)
+            if isinstance(repr_dict, dict):
+                for metric, value in repr_dict.items():
+                    if isinstance(value, (int, float)):
+                        summary[metric] = float(value)
+            else:
+                # 后备方案：基于 scores 手动计算平均值
+                metric_keys = result.scores[0].keys() if result.scores else []
+                for metric in metric_keys:
+                    metric_values = [row.get(metric) for row in result.scores]
+                    numeric_values = [v for v in metric_values if isinstance(v, (int, float))]
+                    if numeric_values:
+                        summary[metric] = sum(numeric_values) / len(numeric_values)
+        else:
+            print("⚠ 未识别的评估结果类型，无法生成指标摘要")
+
+        return summary
     
-    def create_retrieval_evaluation_dataset(self) -> EvaluationDataset:
+    def create_retrieval_evaluation_dataset(self) -> Optional[EvaluationDataset]:
         """创建基于检索的评估数据集"""
         try:
             print("\n=== 创建基于检索的评估数据集 ===")
             
             # 获取原始查询样本
+            if not self.dataset_extractor:
+                raise RuntimeError("数据集提取器未初始化")
+            if not self.milvus or not self.embeddings:
+                raise RuntimeError("Milvus 或嵌入模型未初始化")
+
             query_samples = self.dataset_extractor.query_samples
+            if not query_samples:
+                raise ValueError("没有可用的查询样本，请先创建评估数据集")
             
             retrieval_samples = []
             
